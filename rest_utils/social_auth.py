@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 from django.core.exceptions import ImproperlyConfigured
-from django.auth.contrib import get_user_model
+from django.contrib.auth import get_user_model
 User = get_user_model()
 
 from rest_framework import views, status
