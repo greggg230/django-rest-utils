@@ -90,8 +90,8 @@ class SocialAuthSignupView(views.APIView):
         social_fields = ('backend', 'access_token')
         social_data = {k: v for k, v in request.DATA.items() if k in social_fields}
         signup_data = {k: v for k, v in request.DATA.items() if k not in social_fields}
-        serializer = self.socal_seriliser(data=social_data,
-                                          files=request.FILES)
+        serializer = self.socal_serializer(data=social_data,
+                                           files=request.FILES)
 
         if serializer.is_valid():
             backend = serializer.data['backend']
