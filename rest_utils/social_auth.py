@@ -30,11 +30,11 @@ class SocialAuthView(views.APIView):
     create a new user if not logged in. The user is then logged in and returned
     to the client.
     """
-    socal_serializer = SocialAuthSerializer
+    social_serializer = SocialAuthSerializer
     user_serializer = None
 
     def post(self, request):
-        serializer = self.socal_seriliser(data=request.DATA,
+        serializer = self.social_serializer(data=request.DATA,
                                           files=request.FILES)
 
         if serializer.is_valid():
