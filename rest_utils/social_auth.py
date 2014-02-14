@@ -1,5 +1,7 @@
 # -*- coding: utf-8 -*-
 from django.core.exceptions import ImproperlyConfigured
+from django.auth.contrib import get_user_model
+User = get_user_model()
 
 from rest_framework import views, status
 from rest_framework import serializers
@@ -35,7 +37,7 @@ class SocialAuthView(views.APIView):
 
     def post(self, request):
         serializer = self.social_serializer(data=request.DATA,
-                                          files=request.FILES)
+                                            files=request.FILES)
 
         if serializer.is_valid():
             backend = serializer.data['backend']
@@ -83,15 +85,11 @@ class SocialAuthView(views.APIView):
 class SocialAuthSignupView(views.APIView):
     """Signs up a user after authenticating with a social auth service."""
     social_serializer = SocialAuthSerializer
-    create_serializer = None
+    user_serializer = None
 
     def post(self, request):
-        data = request.DATA
-        social_fields = ('backend', 'access_token')
-        social_data = {k: v for k, v in request.DATA.items() if k in social_fields}
-        signup_data = {k: v for k, v in request.DATA.items() if k not in social_fields}
-        serializer = self.social_serializer(data=social_data,
-                                           files=request.FILES)
+        serializer = self.social_serializer(data=request.DATA,
+                                            files=request.FILES)
 
         if serializer.is_valid():
             backend = serializer.data['backend']
@@ -119,18 +117,12 @@ class SocialAuthSignupView(views.APIView):
             msg = 'SocialAuthView.create_serializer should be a serializer.'
             raise ImproperlyConfigured(msg)
 
-        create_serializer = self.create_serializer(data=signup_data)
-        if create_serializer.is_valid():
-            create_serializer.save()
-        else:
-            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
-        user = create_serializer.object
+        user = User.objects.create_base_social()
 
         _do_login(strategy, user)
 
         self.handle_extra_data(self, user)
-        
+
         serializer = self.user_serializer(user)
         return Response(serializer.data, status=status.HTTP_201_CREATED)
 
