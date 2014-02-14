@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 from django.core.exceptions import ImproperlyConfigured
+from django.contrib.auth.models import get_user_model
 
 from rest_framework import views, status
 from rest_framework import serializers
@@ -30,8 +31,8 @@ class SocialAuthView(views.APIView):
     create a new user if not logged in. The user is then logged in and returned
     to the client.
     """
-    socal_seriliser = SocialAuthSerializer
-    user_seriliser = None
+    socal_serializer = SocialAuthSerializer
+    user_serializer = None
 
     def post(self, request):
         serializer = self.socal_seriliser(data=request.DATA,
@@ -73,10 +74,63 @@ class SocialAuthView(views.APIView):
 
         _do_login(strategy, user)
 
-        if not self.user_seriliser:
+        if not self.user_serializer:
             msg = 'SocialAuthView.user_seriliser should be a serializer.'
             raise ImproperlyConfigured(msg)
-        serializer = self.user_seriliser(user)
+        serializer = self.user_serializer(user)
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+
+class SocialAuthSignupView(views.APIView):
+    """Signs up a user after authenticating with a social auth service."""
+    socal_serializer = SocialAuthSerializer
+    create_serializer = None
+
+    def post(self, request):
+        data = request.DATA
+        social_fields = ('backend', 'access_token')
+        social_data = {k: v for k, v in request.DATA.items() if k in social_fields}
+        signup_data = {k: v for k, v in request.DATA.items() if k not in social_fields}
+        serializer = self.socal_seriliser(data=social_data,
+                                          files=request.FILES)
+
+        if serializer.is_valid():
+            backend = serializer.data['backend']
+        else:
+            return Response(serializer.errors,
+                            status=status.HTTP_400_BAD_REQUEST)
+
+        strategy = load_strategy(request=request, backend=backend)
+        try:
+            kwargs = dict({(k, i) for k, i in serializer.data.items()
+                          if k != 'backend'})
+            user = request.user
+            kwargs['user'] = user.is_authenticated() and user or None
+            user = strategy.backend.do_auth(**kwargs)
+            # Throw error if they already have signed up.
+            assert user is None
+        except (AuthAlreadyAssociated, AssertionError):
+            data = {
+                'error_code': 'social_already_accociated',
+                'status': 'Auth associated with another user.',
+            }
+            return Response(data, status=status.HTTP_403_FORBIDDEN)
+
+        if not self.create_serializer:
+            msg = 'SocialAuthView.create_serializer should be a serializer.'
+            raise ImproperlyConfigured(msg)
+
+        serializer = self.create_serializer(data=signup_data)
+        if serializer.is_valid():
+            serializer.save()
+        else:
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        user = serializer.object
+
+        _do_login(strategy, user)
+        
+        serializer = self.user_serializer(user)
         return Response(serializer.data, status=status.HTTP_201_CREATED)
 
 
