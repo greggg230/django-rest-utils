@@ -113,10 +113,6 @@ class SocialAuthSignupView(views.APIView):
             }
             return Response(data, status=status.HTTP_403_FORBIDDEN)
 
-        if not self.create_serializer:
-            msg = 'SocialAuthView.create_serializer should be a serializer.'
-            raise ImproperlyConfigured(msg)
-
         user = User.objects.create_base_social()
 
         _do_login(strategy, user)
