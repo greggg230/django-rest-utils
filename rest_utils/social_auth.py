@@ -82,7 +82,7 @@ class SocialAuthView(views.APIView):
 
 class SocialAuthSignupView(views.APIView):
     """Signs up a user after authenticating with a social auth service."""
-    socal_serializer = SocialAuthSerializer
+    social_serializer = SocialAuthSerializer
     create_serializer = None
 
     def post(self, request):
@@ -90,7 +90,7 @@ class SocialAuthSignupView(views.APIView):
         social_fields = ('backend', 'access_token')
         social_data = {k: v for k, v in request.DATA.items() if k in social_fields}
         signup_data = {k: v for k, v in request.DATA.items() if k not in social_fields}
-        serializer = self.socal_serializer(data=social_data,
+        serializer = self.social_serializer(data=social_data,
                                            files=request.FILES)
 
         if serializer.is_valid():
@@ -119,18 +119,23 @@ class SocialAuthSignupView(views.APIView):
             msg = 'SocialAuthView.create_serializer should be a serializer.'
             raise ImproperlyConfigured(msg)
 
-        serializer = self.create_serializer(data=signup_data)
-        if serializer.is_valid():
-            serializer.save()
+        create_serializer = self.create_serializer(data=signup_data)
+        if create_serializer.is_valid():
+            create_serializer.save()
         else:
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-        user = serializer.object
+        user = create_serializer.object
 
         _do_login(strategy, user)
+
+        self.handle_extra_data(self, user)
         
         serializer = self.user_serializer(user)
         return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+    def handle_extra_data(self, user):
+        pass
 
 
 import json
