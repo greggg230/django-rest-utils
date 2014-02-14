@@ -98,14 +98,24 @@ class SocialAuthSignupView(views.APIView):
                             status=status.HTTP_400_BAD_REQUEST)
 
         strategy = load_strategy(request=request, backend=backend)
+        # First create a user
+        c = 0
+        while True:
+            random_email = "tmp{}@test.com".format(c)
+            try:
+                User.objects.get(email=random_email)
+            except User.DoesNotExist:
+                break
+            c += 1
+
+        user = strategy.create_user(email=random_email)
+        # Now try logging into auth.
         try:
             kwargs = dict({(k, i) for k, i in serializer.data.items()
                           if k != 'backend'})
-            user = request.user
-            kwargs['user'] = user.is_authenticated() and user or None
+            kwargs['user'] = user
             user = strategy.backend.do_auth(**kwargs)
             # Throw error if they already have signed up.
-            assert user is None
         except (AuthAlreadyAssociated, AssertionError):
             data = {
                 'error_code': 'social_already_accociated',
@@ -113,17 +123,10 @@ class SocialAuthSignupView(views.APIView):
             }
             return Response(data, status=status.HTTP_403_FORBIDDEN)
 
-        user = User.objects.create_base_social()
-
         _do_login(strategy, user)
-
-        self.handle_extra_data(self, user)
 
         serializer = self.user_serializer(user)
         return Response(serializer.data, status=status.HTTP_201_CREATED)
-
-    def handle_extra_data(self, user):
-        pass
 
 
 import json
